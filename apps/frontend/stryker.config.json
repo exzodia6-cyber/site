@@ -1,0 +1,1 @@
+{"packageManager":"npm","reporters":["clear-text","progress"],"testRunner":"vitest","coverageAnalysis":"off","mutate":["src/lib/*.ts"],"thresholds":{"high":60,"low":40,"break":30}}
