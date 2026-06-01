@@ -1,0 +1,113 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ExamType { OGE EGE }
+enum TaskType { MULTIPLE_CHOICE TEXT }
+enum TestStatus { IN_PROGRESS FINISHED }
+
+model User {
+  id            String           @id @default(cuid())
+  name          String
+  email         String           @unique
+  passwordHash  String
+  role          String           @default("student")
+  createdAt     DateTime         @default(now())
+  taskResults   UserTaskResult[]
+  testSessions  TestSession[]
+  progress      UserProgress[]
+}
+
+model Subject {
+  id          String         @id @default(cuid())
+  title       String
+  examType    ExamType
+  description String
+  topics      Topic[]
+  progress    UserProgress[]
+  createdAt   DateTime       @default(now())
+}
+
+model Topic {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  subjectId   String
+  subject     Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  tasks       Task[]
+}
+
+model Task {
+  id             String           @id @default(cuid())
+  topicId        String
+  topic          Topic            @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  question       String
+  type           TaskType         @default(MULTIPLE_CHOICE)
+  correctAnswer  String
+  explanation    String
+  difficulty     Int              @default(1)
+  answerOptions  AnswerOption[]
+  taskResults    UserTaskResult[]
+  testAnswers    TestAnswer[]
+}
+
+model AnswerOption {
+  id     String @id @default(cuid())
+  taskId String
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  label  String
+  text   String
+}
+
+model UserTaskResult {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  taskId      String
+  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  answer      String
+  isCorrect   Boolean
+  createdAt   DateTime @default(now())
+}
+
+model TestSession {
+  id          String       @id @default(cuid())
+  userId      String
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subjectId   String
+  status      TestStatus   @default(IN_PROGRESS)
+  totalTasks  Int
+  score       Int          @default(0)
+  createdAt   DateTime     @default(now())
+  finishedAt  DateTime?
+  answers     TestAnswer[]
+}
+
+model TestAnswer {
+  id        String      @id @default(cuid())
+  sessionId String
+  session   TestSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  taskId    String
+  task      Task        @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  answer    String?
+  isCorrect Boolean?
+}
+
+model UserProgress {
+  id              String  @id @default(cuid())
+  userId          String
+  user            User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subjectId       String
+  subject         Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  solvedTasks     Int     @default(0)
+  correctAnswers  Int     @default(0)
+  weakTopics      Json    @default("[]")
+  progressPercent Int     @default(0)
+
+  @@unique([userId, subjectId])
+}

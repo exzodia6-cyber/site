@@ -1,0 +1,17 @@
+{
+  "name": "@oge-ege/backend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node dist/server.js",
+    "build": "node ../../scripts/build-backend.mjs",
+    "start": "node dist/server.js",
+    "test": "node ../../scripts/test-backend.mjs",
+    "test:coverage": "node ../../scripts/test-backend.mjs --coverage",
+    "test:mutation": "node ../../scripts/mutation-backend.mjs",
+    "test:load": "node ../../scripts/load-backend.mjs"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

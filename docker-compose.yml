@@ -1,0 +1,34 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: oge
+      POSTGRES_PASSWORD: oge
+      POSTGRES_DB: oge_ege
+    ports: ["5432:5432"]
+    volumes: ["postgres_data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U oge -d oge_ege"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  backend:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    environment:
+      PORT: 4000
+      JWT_SECRET: docker-secret
+      DATABASE_URL: postgresql://oge:oge@db:5432/oge_ege?schema=public
+    depends_on:
+      db:
+        condition: service_healthy
+    ports: ["4000:4000"]
+  frontend:
+    build:
+      context: .
+      dockerfile: apps/frontend/Dockerfile
+    depends_on: [backend]
+    ports: ["5173:5173"]
+volumes:
+  postgres_data:

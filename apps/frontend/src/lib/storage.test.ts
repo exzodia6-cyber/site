@@ -1,0 +1,3 @@
+import { describe, expect, it, beforeEach } from 'vitest';
+import { loadProgress, recordAnswer } from './storage';
+describe('demo progress storage', () => { beforeEach(()=>localStorage.clear()); it('loads default progress if storage is empty', () => { expect(loadProgress().solvedTasks).toBeGreaterThan(0); }); it('records correct answers and recalculates percent', () => { const p = recordAnswer(true, 'Орфография'); expect(p.correctAnswers).toBe(11); expect(p.progressPercent).toBeGreaterThan(0); }); it('tracks weak topic on mistake', () => { const p = recordAnswer(false, 'Функции'); expect(p.weakTopics).toContain('Функции'); }); });
