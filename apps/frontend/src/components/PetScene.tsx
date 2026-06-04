@@ -7,6 +7,19 @@ import type { ActiveInteraction, PetAnimationState, SceneMode } from '../types/a
 import { InteractionController } from './InteractionController';
 import { PetEnvironment } from './PetEnvironment';
 
+const BASE_SCALE = 1;
+const IDLE_AMOUNT = 0.025;
+const MIN_SAFE_SCALE = BASE_SCALE - IDLE_AMOUNT;
+const MAX_SAFE_SCALE = BASE_SCALE + IDLE_AMOUNT;
+const CAMERA_POSITION = [0, 1.5, 6] as [number, number, number];
+const CAMERA_FOV = 45;
+const CONTROLS_TARGET = [0, 1, 0] as [number, number, number];
+
+function getIdleScale(elapsedTime: number) {
+  const idleScale = BASE_SCALE + Math.sin(elapsedTime * 2) * IDLE_AMOUNT;
+  return THREE.MathUtils.clamp(idleScale, MIN_SAFE_SCALE, MAX_SAFE_SCALE);
+}
+
 const attachPoints = {
   head: [0, 1.35, 0] as [number, number, number],
   face: [0, 0.88, 0.48] as [number, number, number],
@@ -29,7 +42,7 @@ function Accessory({ itemId }: { itemId: string }) {
   </group>;
 }
 
-function PetPrimitive({ equippedItemIds, petAnimationState }: { equippedItemIds: string[]; petAnimationState: PetAnimationState }) {
+function PetModel({ equippedItemIds, petAnimationState }: { equippedItemIds: string[]; petAnimationState: PetAnimationState }) {
   const group = useRef<THREE.Group>(null);
   const head = useRef<THREE.Group>(null);
   const tail = useRef<THREE.Mesh>(null);
@@ -40,6 +53,7 @@ function PetPrimitive({ equippedItemIds, petAnimationState }: { equippedItemIds:
     const sleepy = petAnimationState === 'sleepy' || petAnimationState === 'sleeping';
     const energy = petAnimationState === 'happy' || petAnimationState === 'playing' ? 1.5 : sleepy ? 0.55 : 1;
     if (group.current) {
+      group.current.scale.setScalar(getIdleScale(t));
       group.current.position.y = Math.sin(t * 1.8 * energy) * 0.045 * energy;
       group.current.rotation.y = Math.sin(t * 0.7) * 0.1;
       group.current.rotation.z = petAnimationState === 'sleeping' ? -0.52 : petAnimationState === 'playing' ? Math.sin(t * 9) * 0.18 : 0;
@@ -57,7 +71,7 @@ function PetPrimitive({ equippedItemIds, petAnimationState }: { equippedItemIds:
   const bodyColor = petAnimationState === 'washing' ? '#8be9fd' : petAnimationState === 'dirty' ? '#d8b4a0' : '#f9a8d4';
   const mouthOpen = petAnimationState === 'eating';
   const happyMouth = petAnimationState === 'happy' || petAnimationState === 'playing';
-  return <group ref={group} castShadow>
+  return <group ref={group} scale={BASE_SCALE} castShadow>
     <mesh position={[0, 0, 0]} castShadow><sphereGeometry args={[0.62, 48, 48]} /><meshStandardMaterial color={bodyColor} roughness={0.55} /></mesh>
     <mesh ref={tail} position={[-0.64, 0.1, -0.08]} rotation={[0.45, 0.2, -0.4]} castShadow><capsuleGeometry args={[0.09, 0.48, 8, 18]} /><meshStandardMaterial color="#f9a8d4" roughness={0.52} /></mesh>
     <group ref={head} position={[0, 0.82, 0]}>
@@ -76,17 +90,28 @@ function PetPrimitive({ equippedItemIds, petAnimationState }: { equippedItemIds:
 }
 
 function CustomImagePet({ image }: { image: string }) {
+  const group = useRef<THREE.Group>(null);
   const texture = useMemo(() => new THREE.TextureLoader().load(image), [image]);
-  return <mesh position={[0, 0.3, 0.4]}><planeGeometry args={[1.9, 1.9]} /><meshBasicMaterial map={texture} transparent /></mesh>;
+  useFrame(({ clock }) => {
+    group.current?.scale.setScalar(getIdleScale(clock.elapsedTime));
+  });
+  return <group ref={group} scale={BASE_SCALE}><mesh position={[0, 0.3, 0.4]}><planeGeometry args={[1.9, 1.9]} /><meshBasicMaterial map={texture} transparent /></mesh></group>;
 }
 
 export function PetScene({ equippedItemIds, customImage, customImageMode, sceneMode, petAnimationState, interaction }: { equippedItemIds: string[]; customImage?: string; customImageMode?: boolean; sceneMode: SceneMode; petAnimationState: PetAnimationState; interaction?: ActiveInteraction }) {
-  return <Canvas camera={{ position: [0, 1.05, 4.4], fov: 43 }} shadows>
+  return <Canvas camera={{ position: CAMERA_POSITION, fov: CAMERA_FOV }} shadows>
     <Suspense fallback={null}>
       <PetEnvironment mode={sceneMode} />
-      {customImageMode && customImage ? <CustomImagePet image={customImage} /> : <PetPrimitive equippedItemIds={equippedItemIds} petAnimationState={petAnimationState} />}
+      {customImageMode && customImage ? <CustomImagePet image={customImage} /> : <PetModel equippedItemIds={equippedItemIds} petAnimationState={petAnimationState} />}
       <InteractionController interaction={interaction} />
-      <OrbitControls enablePan={false} minDistance={3.1} maxDistance={5.4} maxPolarAngle={Math.PI / 2.05} />
+      <OrbitControls
+        enablePan={false}
+        minDistance={4}
+        maxDistance={8}
+        minPolarAngle={Math.PI / 3}
+        maxPolarAngle={Math.PI / 2}
+        target={CONTROLS_TARGET}
+      />
     </Suspense>
   </Canvas>;
 }
