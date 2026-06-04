@@ -1,9 +1,10 @@
-import { createServer } from 'node:http';
-import { readFileSync, existsSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
-const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const indexPath = resolve(root,'apps/frontend/dist/index.html');
-if (!existsSync(indexPath)) await import('./build-frontend.mjs');
-const html = () => readFileSync(indexPath);
-createServer((req,res)=>{res.writeHead(200,{'content-type':'text/html; charset=utf-8'});res.end(html())}).listen(5173,()=>console.log('Frontend: http://localhost:5173'));
+import { spawnSync } from 'node:child_process';
+
+const command = process.argv.includes('--preview') ? 'preview' : '--host';
+const args = command === 'preview' ? ['vite', 'preview', '--host', '0.0.0.0'] : ['vite', '--host', '0.0.0.0'];
+const result = spawnSync('npx', args, {
+  cwd: new URL('../apps/frontend', import.meta.url),
+  stdio: 'inherit',
+  shell: process.platform === 'win32'
+});
+process.exit(result.status ?? 1);
