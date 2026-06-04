@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getItem, wearableTypes } from '../data/items';
 import { loadGame, resetGame as resetPersistedGame, saveGame } from '../store/gameStorage';
 import type { GameState, RewardToast } from '../types/game';
+import type { ActiveInteraction, InteractionType } from '../types/animation';
 import { addXpAndLevel, clampStat, incrementTask } from '../utils/game';
 
 const toast = (text: string, kind: RewardToast['kind']): RewardToast => ({ id: crypto.randomUUID(), text, kind });
@@ -9,7 +10,9 @@ const toast = (text: string, kind: RewardToast['kind']): RewardToast => ({ id: c
 export function useGameStore() {
   const [state, setState] = useState<GameState>(() => loadGame());
   const [toasts, setToasts] = useState<RewardToast[]>([]);
-  const [lastAnimation, setLastAnimation] = useState<'feed' | 'wash' | 'play' | 'sleep' | undefined>();
+  const [lastAnimation, setLastAnimation] = useState<InteractionType | undefined>();
+  const [currentInteraction, setCurrentInteraction] = useState<ActiveInteraction | undefined>();
+  const interactionTimeoutRef = useRef<number>();
 
   useEffect(() => saveGame(state), [state]);
   useEffect(() => {
@@ -22,39 +25,62 @@ export function useGameStore() {
     setToasts((items) => [...items, toast(text, kind)]);
   }, []);
 
-  const mutate = useCallback((updater: (state: GameState) => GameState, animation?: typeof lastAnimation) => {
+  const mutate = useCallback((updater: (state: GameState) => GameState) => {
     setState((current) => updater(current));
-    if (animation) {
-      setLastAnimation(animation);
-      window.setTimeout(() => setLastAnimation(undefined), 1200);
-    }
   }, []);
+
+  useEffect(() => () => {
+    if (interactionTimeoutRef.current) window.clearTimeout(interactionTimeoutRef.current);
+  }, []);
+
+  const startInteraction = useCallback((interaction: Omit<ActiveInteraction, 'id' | 'startedAt'>, complete: () => void, duration = 1800) => {
+    if (currentInteraction) {
+      notify('Питомец уже занят — дождитесь завершения действия', 'error');
+      return;
+    }
+    const active: ActiveInteraction = { ...interaction, id: crypto.randomUUID(), startedAt: Date.now() };
+    setCurrentInteraction(active);
+    setLastAnimation(interaction.type);
+    interactionTimeoutRef.current = window.setTimeout(() => {
+      complete();
+      setCurrentInteraction(undefined);
+      setLastAnimation(undefined);
+    }, duration);
+  }, [currentInteraction, notify]);
 
   const feedPet = useCallback((foodId: string) => {
     const item = getItem(foodId);
     if (!item || item.type !== 'food') return notify('Такую еду найти не удалось', 'error');
-    mutate((current) => ({
-      ...current,
-      pet: { ...current.pet, hunger: clampStat(current.pet.hunger + (item.hungerEffect ?? 0)) },
-      tasks: incrementTask(current.tasks, 'feed-once')
-    }), 'feed');
-    notify(`${item.name}: голод уменьшен`, 'care');
-  }, [mutate, notify]);
+    startInteraction({ type: 'feed', foodId }, () => {
+      mutate((current) => ({
+        ...current,
+        pet: { ...current.pet, hunger: clampStat(current.pet.hunger + (item.hungerEffect ?? 0)) },
+        tasks: incrementTask(current.tasks, 'feed-once')
+      }));
+      notify(`${item.name}: +сытость`, 'care');
+    });
+  }, [mutate, notify, startInteraction]);
 
   const washPet = useCallback(() => {
-    mutate((current) => ({ ...current, pet: { ...current.pet, cleanliness: clampStat(current.pet.cleanliness + 25) }, tasks: incrementTask(current.tasks, 'wash-once') }), 'wash');
-    notify('Питомец сияет чистотой!', 'care');
-  }, [mutate, notify]);
+    startInteraction({ type: 'wash' }, () => {
+      mutate((current) => ({ ...current, pet: { ...current.pet, cleanliness: clampStat(current.pet.cleanliness + 25) }, tasks: incrementTask(current.tasks, 'wash-once') }));
+      notify('Питомец сияет чистотой! +чистота', 'care');
+    }, 2100);
+  }, [mutate, notify, startInteraction]);
 
   const playWithPet = useCallback(() => {
-    mutate((current) => ({ ...current, pet: { ...current.pet, mood: clampStat(current.pet.mood + 18), energy: clampStat(current.pet.energy - 12) }, tasks: incrementTask(current.tasks, 'play-once') }), 'play');
-    notify('Весёлая игра подняла настроение', 'care');
-  }, [mutate, notify]);
+    startInteraction({ type: 'play' }, () => {
+      mutate((current) => ({ ...current, pet: { ...current.pet, mood: clampStat(current.pet.mood + 18), energy: clampStat(current.pet.energy - 12) }, tasks: incrementTask(current.tasks, 'play-once') }));
+      notify('Весёлая игра: +настроение, -энергия', 'care');
+    }, 1900);
+  }, [mutate, notify, startInteraction]);
 
   const sleepPet = useCallback(() => {
-    mutate((current) => ({ ...current, pet: { ...current.pet, energy: clampStat(current.pet.energy + 35), mood: clampStat(current.pet.mood + 4) }, tasks: incrementTask(current.tasks, 'sleep-once') }), 'sleep');
-    notify('Питомец хорошо отдохнул', 'care');
-  }, [mutate, notify]);
+    startInteraction({ type: 'sleep' }, () => {
+      mutate((current) => ({ ...current, pet: { ...current.pet, energy: clampStat(current.pet.energy + 35), mood: clampStat(current.pet.mood + 4) }, tasks: incrementTask(current.tasks, 'sleep-once') }));
+      notify('Питомец хорошо отдохнул! +энергия', 'care');
+    }, 2300);
+  }, [mutate, notify, startInteraction]);
 
   const buyItem = useCallback((itemId: string) => {
     const item = getItem(itemId);
@@ -128,5 +154,5 @@ export function useGameStore() {
     notify('Игра начата заново', 'care');
   }, [notify]);
 
-  return useMemo(() => ({ state, toasts, lastAnimation, feedPet, washPet, playWithPet, sleepPet, buyItem, equipItem, unequipItem, completeTask, claimTaskReward, setCustomImage, setCustomImageMode, resetGame }), [state, toasts, lastAnimation, feedPet, washPet, playWithPet, sleepPet, buyItem, equipItem, unequipItem, completeTask, claimTaskReward, setCustomImage, setCustomImageMode, resetGame]);
+  return useMemo(() => ({ state, toasts, lastAnimation, currentInteraction, isInteracting: Boolean(currentInteraction), feedPet, washPet, playWithPet, sleepPet, buyItem, equipItem, unequipItem, completeTask, claimTaskReward, setCustomImage, setCustomImageMode, resetGame }), [state, toasts, lastAnimation, currentInteraction, feedPet, washPet, playWithPet, sleepPet, buyItem, equipItem, unequipItem, completeTask, claimTaskReward, setCustomImage, setCustomImageMode, resetGame]);
 }

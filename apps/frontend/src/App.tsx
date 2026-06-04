@@ -25,7 +25,7 @@ export default function App() {
         <SplitLayout header={<PanelHeader delimiter="none">PetLife VK</PanelHeader>}>
           <SplitCol>
             <View activePanel={panel}>
-              <Panel id="pet"><PetScreen state={game.state} animation={game.lastAnimation} onFeed={game.feedPet} onWash={game.washPet} onPlay={game.playWithPet} onSleep={game.sleepPet} onNavigate={setPanel} onUploadImage={game.setCustomImage} onToggleImageMode={game.setCustomImageMode} onReset={game.resetGame} /></Panel>
+              <Panel id="pet"><PetScreen state={game.state} currentInteraction={game.currentInteraction} isInteracting={game.isInteracting} onFeed={game.feedPet} onWash={game.washPet} onPlay={game.playWithPet} onSleep={game.sleepPet} onNavigate={setPanel} onUploadImage={game.setCustomImage} onToggleImageMode={game.setCustomImageMode} onReset={game.resetGame} /></Panel>
               <Panel id="tasks"><TasksScreen tasks={game.state.tasks} onClaim={game.claimTaskReward} onBack={() => setPanel('pet')} /></Panel>
               <Panel id="shop"><ShopScreen coins={game.state.pet.coins} inventory={game.state.inventory} ownedItems={game.state.pet.ownedItems} onBuy={game.buyItem} onBack={() => setPanel('pet')} /></Panel>
               <Panel id="wardrobe"><WardrobeScreen pet={game.state.pet} onEquip={game.equipItem} onUnequip={game.unequipItem} onUploadImage={game.setCustomImage} onToggleImageMode={game.setCustomImageMode} onBack={() => setPanel('pet')} /></Panel>
