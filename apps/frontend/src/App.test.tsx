@@ -1,6 +1,20 @@
 import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import type { ReactNode } from 'react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import App from './App';
-beforeEach(()=>{ localStorage.clear(); vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('offline')))); });
-describe('App MVP', () => { it('renders home headline and subject flow in demo mode', async () => { const user = userEvent.setup(); render(<App/>); expect(screen.getByText('Готовься к ОГЭ и ЕГЭ системно')).toBeInTheDocument(); await user.click(screen.getByText('Выбрать предмет')); expect(await screen.findByText('Математика ОГЭ')).toBeInTheDocument(); }); it('supports demo login fallback', async () => { const user = userEvent.setup(); render(<App/>); await user.click(screen.getByText('Войти')); await user.click(screen.getByRole('button', { name: 'Войти' })); expect(await screen.findByText('Демо Ученик')).toBeInTheDocument(); }); });
+
+vi.mock('@vkontakte/vk-bridge', () => ({ default: { send: vi.fn() } }));
+vi.mock('@react-three/fiber', () => ({ Canvas: ({ children }: { children: ReactNode }) => <div data-testid="canvas">{children}</div>, useFrame: vi.fn() }));
+vi.mock('@react-three/drei', () => ({ OrbitControls: () => <div />, useGLTF: Object.assign(() => ({ scene: { clone: () => ({}) } }), { preload: vi.fn() }) }));
+
+beforeEach(() => localStorage.clear());
+
+describe('PetLife VK', () => {
+  it('renders the pet home screen with core stats and actions', () => {
+    render(<App />);
+    expect(screen.getByText('PetLife VK')).toBeInTheDocument();
+    expect(screen.getByText('Пушок')).toBeInTheDocument();
+    expect(screen.getByText('🍎 Покормить')).toBeInTheDocument();
+    expect(screen.getByText('Гардероб')).toBeInTheDocument();
+  });
+});

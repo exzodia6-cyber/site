@@ -1,5 +1,0 @@
-export type DemoProgress = { solvedTasks:number; correctAnswers:number; weakTopics:string[]; latestTests:any[]; progressPercent:number };
-export const defaultProgress: DemoProgress = { solvedTasks:14, correctAnswers:10, weakTopics:['Пунктуация','Уравнения','Вероятность'], latestTests:[{id:'demo-test', subjectId:'math-oge', score:4, totalTasks:5, createdAt:'2026-05-20'}], progressPercent:42 };
-export function loadProgress(): DemoProgress { try { return JSON.parse(localStorage.getItem('oge-progress') || '') as DemoProgress; } catch { return defaultProgress; } }
-export function saveProgress(progress: DemoProgress) { localStorage.setItem('oge-progress', JSON.stringify(progress)); }
-export function recordAnswer(isCorrect: boolean, topic: string) { const progress = loadProgress(); progress.solvedTasks += 1; if (isCorrect) progress.correctAnswers += 1; else if (!progress.weakTopics.includes(topic)) progress.weakTopics.unshift(topic); progress.progressPercent = Math.min(100, Math.round(progress.correctAnswers / Math.max(1, progress.solvedTasks) * 100)); saveProgress(progress); return progress; }
